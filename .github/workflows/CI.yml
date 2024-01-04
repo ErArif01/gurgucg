@@ -1,0 +1,55 @@
+name: CI CD Pipeline
+
+on:
+  push:
+    branches:
+    - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '5.0.100'
+      
+    - name: Build with dotnet
+      run: dotnet build --configuration Release
+      
+    - name: dotnet publish
+      run: |
+        dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/gurgucg
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: monaWeb
+        path: ${{env.DOTNET_ROOT}}/gurgucg
+
+
+  staging:
+    needs: build
+    uses: gurgucg/.github/workflows/publish-to-azure.yml@main
+    with:
+      envName: "Staging"
+      envUrl: "https://mona-dotnetweb-staging.azurewebsites.net/"
+      slotName: "staging"
+      artifactName: "monaWeb"
+    secrets:
+      azureWebAppPublishProfile: ${{ secrets.azureWebAppPublishProfile }}
+
+  prod:
+    needs: staging
+    uses: gurgucg/.github/workflows/publish-to-azure.yml@main
+    with:
+      envName: "Prod"
+      envUrl: "https://mona-dotnetweb.azurewebsites.net/"
+      slotName: "production"
+      artifactName: "monaWeb"
+    secrets:
+      azureWebAppPublishProfile: ${{ secrets.azureWebAppPublishProfile }}
